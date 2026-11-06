@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>If This Then That - Leadership</title>
+<meta name="theme-color" content="#0E0E0E">
+<style>
+html,body{margin:0;padding:0;background:#0E0E0E}
+*{box-sizing:border-box}
+button,textarea,input{font-family:inherit}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+var useState=React.useState,useEffect=React.useEffect;
+
+/* ---------- config ---------- */
+var MODEL="claude-sonnet-4-5-20251001"; /* change here if you want a different model */
+var LS="ifttt:";
+
+/* ---------- storage (browser localStorage) ---------- */
+window.storage={
+  get:function(k){return new Promise(function(res){try{var v=localStorage.getItem(LS+k);res(v===null?null:{key:k,value:v});}catch(e){res(null);}});},
+  set:function(k,v){return new Promise(function(res,rej){try{localStorage.setItem(LS+k,v);res({key:k,value:v});}catch(e){rej(e);}});},
+  delete:function(k){return new Promise(function(res){try{localStorage.removeItem(LS+k);}catch(e){}res({key:k,deleted:true});});}
+};
+function getKey(){try{return localStorage.getItem(LS+"apikey")||"";}catch(e){return "";}}
+
+/* ---------- data ---------- */
+const TM={
+  SA:{disp:"S\u2192A",label:"Situation \u2192 Action",c:"#4A9EBF",bg:"rgba(74,158,191,.1)",bd:"rgba(74,158,191,.3)"},
+  DL:{disp:"D\u2192L",label:"Decision Logic",c:"#C9A84C",bg:"rgba(201,168,76,.1)",bd:"rgba(201,168,76,.3)"},
+  CE:{disp:"C\u2192E",label:"Cause & Effect",c:"#9B7FBF",bg:"rgba(155,127,191,.1)",bd:"rgba(155,127,191,.3)"}
+};
+
+const CARDS_1=[
+[1,"Feedback","SA","A team member makes a mistake that impacts a deliverable"],
+[2,"Feedback","SA","You need to deliver difficult feedback about someone's performance"],
+[3,"Feedback","SA","Someone submits work that falls well short of the required standard"],
+[4,"Feedback","DL","A consistently underperforming team member has not received honest feedback"],
+[5,"Feedback","DL","A high performer asks directly whether they are on track for the next level"],
+[6,"Feedback","DL","A team member becomes defensive when you raise development feedback"],
+[7,"Feedback","SA","You need to challenge the thinking of someone more experienced or senior"],
+[8,"Feedback","CE","You wait for a team member to ask for developmental feedback before giving it"],
+[9,"Direction","SA","The team is unclear on what to prioritise this quarter"],
+[10,"Direction","SA","Priorities have shifted from senior leadership and you need to redirect the team"],
+[11,"Direction","DL","The team pushes back on a strategic decision you have made"],
+[12,"Direction","SA","The team is paralysed by too many competing priorities"],
+[13,"Direction","DL","You receive an unclear mandate from senior leadership"],
+[14,"Direction","SA","A team member keeps working outside the agreed scope"],
+[15,"Development","DL","A team member wants to stretch into work beyond their current remit"],
+[16,"Development","CE","A strong performer plateaus and you leave them unchallenged because they are still delivering"],
+[17,"Development","SA","A junior team member proposes an approach that will not work"],
+[18,"Development","SA","A team member is visibly struggling and it is beginning to affect others"],
+[19,"Development","DL","A top performer has no interest in advancement or moving into leadership"],
+[20,"Development","SA","A valued team member is being courted by another internal team"],
+[21,"Development","SA","You need to delegate a high-stakes piece of work for the first time"],
+[22,"Development","DL","A team member wants time for learning that seems unrelated to their current work"],
+[23,"Pressure","SA","The team is under serious deadline pressure and morale is dropping"],
+[24,"Pressure","SA","A project is in serious trouble and leadership wants answers"],
+[25,"Pressure","CE","You perform composure when you are personally carrying significant stress"],
+[26,"Pressure","DL","The team has been working unsustainable hours for an extended period"],
+[27,"Pressure","SA","A critical team member resigns in the middle of a high-stakes delivery"],
+[28,"Pressure","DL","You are asked to deliver the same outcomes with significantly fewer resources"],
+[29,"Recognition","SA","The team successfully delivers a complex high-stakes project"],
+[30,"Recognition","SA","One person's exceptional effort went unnoticed by the wider team"],
+[31,"Recognition","CE","A high performer sustains delivery while clearly burning out and you leave them to it"],
+[32,"Recognition","SA","A team member feels their contribution is less visible than a colleague's"],
+[33,"Recognition","SA","The team is fatigued and has not had a meaningful win in some time"],
+[34,"Recognition","SA","A valued team member is leaving and you want to close the chapter well"],
+[35,"Ownership","CE","You consistently make decisions the team could make themselves"],
+[36,"Ownership","DL","A failure is being attributed to process gaps rather than individual accountability"],
+[37,"Ownership","CE","A strategic call you made has not played out as expected"],
+[38,"Ownership","DL","A team member refuses a task saying it is not their responsibility"],
+[39,"Ownership","CE","The team consistently escalates decisions rather than making them independently"],
+[40,"Ownership","DL","A delegated decision keeps coming back to you after you have handed it off"],
+[41,"Conflict","SA","Two team members have been in unresolved conflict for weeks"],
+[42,"Conflict","DL","There is significant friction between your team and a peer team"],
+[43,"Conflict","SA","A team member challenges your reasoning publicly in a group setting"],
+[44,"Conflict","DL","Two high performers have a toxic dynamic that is damaging team culture"],
+[45,"Conflict","SA","A team member escalates a disagreement directly to your manager"],
+[46,"Conflict","DL","The team is actively resisting a new way of working you are implementing"],
+[47,"Change","SA","A significant organisational change is being communicated from senior leadership"],
+[48,"Change","SA","The team is visibly anxious about the organisation's future direction"],
+[49,"Change","DL","You disagree with a senior decision but are required to implement it"],
+[50,"Change","SA","A restructure is announced and the team is worried about their roles"],
+[51,"Change","CE","A change initiative you championed is not producing the expected results"],
+[52,"Change","CE","The team keeps reverting to previous behaviours despite an agreed change"],
+[53,"Connection","SA","You are opening a one-to-one check-in with a team member"],
+[54,"Connection","CE","A team member is delivering but appears noticeably disengaged and you do not intervene"],
+[55,"Connection","SA","A new team member is consistently silent in meetings and not yet contributing"],
+[56,"Connection","SA","A remote team member is becoming increasingly silent and less engaged"],
+[57,"Connection","CE","A small in-group forms that is visibly excluding others and you treat it as natural dynamics"],
+[58,"Connection","SA","A team member discloses something personal that is affecting their ability to work"],
+[59,"Vision","SA","The team is heads-down in delivery and has lost sight of the larger purpose"],
+[60,"Vision","SA","A team member asks why a particular piece of work actually matters"],
+[61,"Vision","SA","The team is demoralised after a project is cancelled before completion"],
+[62,"Vision","DL","A team member openly questions whether the organisation is heading in the right direction"],
+[63,"Vision","DL","Stakeholders keep redefining success mid-project creating confusion and rework"],
+[64,"Vision","CE","The team executes well but has never been told how their work connects to organisational strategy"]
+];
+
+const CARDS_2=[
+[65,"Feedback","CE","You realise that feedback you gave weeks ago was incomplete or wrong"],
+[66,"Feedback","SA","A team member withdraws and avoids you after a difficult feedback conversation"],
+[67,"Feedback","DL","Two senior people are giving your team member contradictory feedback"],
+[68,"Feedback","DL","A team member asks for your honest assessment immediately after presenting to a group"],
+[69,"Feedback","SA","You discover a team member has been receiving critical peer feedback they have not shared with you"],
+[70,"Feedback","SA","A team member gives consistently vague or unhelpful feedback to their own direct reports"],
+[71,"Feedback","DL","You need to give developmental feedback to someone who has just received difficult personal news"],
+[72,"Feedback","CE","A team member accepts feedback in the moment but consistently fails to act on it"],
+[73,"Direction","DL","Two senior leaders are giving your team conflicting direction and expect both to be followed"],
+[74,"Direction","DL","You have made a call and new information makes you doubt it but the team has already mobilised"],
+[75,"Direction","CE","The team has been waiting for a direction you have been slow to give"],
+[76,"Direction","DL","You are asked to set a target you believe is either too low or too high to motivate"],
+[77,"Direction","SA","A deadline has been set externally that the team believes is unrealistic"],
+[78,"Direction","SA","The team is executing well but you realise they are solving the wrong problem"],
+[79,"Development","DL","A team member is ready for promotion but no suitable role currently exists"],
+[80,"Development","SA","You are developing someone who is more capable than you in a specific domain"],
+[81,"Development","DL","A high-potential new hire is visibly underperforming in their first ninety days"],
+[82,"Development","SA","A team member's development is stalling despite genuine effort on their part"],
+[83,"Development","CE","Someone is developing so fast they are beginning to outpace their peers visibly"],
+[84,"Development","DL","A team member keeps investing in skills the organisation does not currently need"],
+[85,"Development","CE","You realise you have been developing someone for a role they do not actually want"],
+[86,"Development","SA","A team member asks to shadow you but you are uncertain it will add real value for them"],
+[87,"Pressure","SA","Mistakes are appearing under delivery pressure and no one on the team is naming them"],
+[88,"Pressure","DL","You are asked to commit to a deadline that requires everything to go perfectly"],
+[89,"Pressure","CE","A delivery is going well but the team is running on adrenaline rather than resilience"],
+[90,"Pressure","SA","Your own manager is adding pressure to a team that is already at full capacity"],
+[91,"Pressure","CE","The team pulls through a crisis successfully but there is no recovery time before the next one"],
+[92,"Pressure","DL","You are under pressure to cut corners in a way that will create significant future risk"],
+[93,"Recognition","SA","One team member is recognised loudly and repeatedly while equal contributors are overlooked"],
+[94,"Recognition","SA","External praise arrives for your team but names only one or two individuals"],
+[95,"Recognition","SA","A long-serving team member has never received meaningful recognition and seems resigned to it"],
+[96,"Recognition","DL","Your own contribution goes unrecognised by leadership and it is beginning to affect you"],
+[97,"Recognition","SA","A team member consistently deflects or dismisses recognition when it is offered"],
+[98,"Recognition","DL","You need to recognise someone for sustained effort on a project that ultimately failed"],
+[99,"Ownership","CE","A team member takes ownership in name but consistently checks back in for your reassurance"],
+[100,"Ownership","DL","A mistake is being quietly absorbed by the team without anyone naming who is responsible"],
+[101,"Ownership","DL","You are asked to own a cross-functional outcome you have no real authority to influence"],
+[102,"Ownership","DL","A team member owns a problem but their proposed solution is clearly the wrong one"],
+[103,"Ownership","SA","Strong team accountability norms are being visibly disrupted by a new team member"],
+[104,"Ownership","CE","You realise you have been shielding the team from consequences in a way that limits their growth"],
+[105,"Conflict","SA","A team member has a strong visible reaction to a peer's promotion"],
+[106,"Conflict","SA","You discover two team members have been managing an escalating conflict without telling you"],
+[107,"Conflict","DL","A valued team member has a recurring conflict with a key external stakeholder"],
+[108,"Conflict","SA","There is visible tension between the team you lead and the team you originally came from"],
+[109,"Conflict","SA","A conflict surfaces during a high-stakes moment such as a client meeting or live presentation"],
+[110,"Conflict","DL","A team member is directing frustration about an organisational issue at a specific colleague"],
+[111,"Change","SA","The organisation announces a culture or values change that your team is openly sceptical about"],
+[112,"Change","SA","A change your team adopted successfully is now being reversed by a new leadership decision"],
+[113,"Change","DL","You are leading a change you privately believe will not achieve its stated goal"],
+[114,"Change","SA","Your team adapted well to a major change but a peer team did not and it is affecting joint work"],
+[115,"Change","CE","The team member who most championed a change is now the most resistant to sustaining it"],
+[116,"Change","CE","The pace of organisational change has become so relentless that the team is showing fatigue"],
+[117,"Connection","SA","A previously highly engaged team member has become quietly transactional in how they show up"],
+[118,"Connection","CE","You realise you know very little about the personal motivations of the people you manage"],
+[119,"Connection","SA","A team member has experienced a significant life event and you are unsure how to acknowledge it"],
+[120,"Connection","SA","Two team members who were previously close have had a falling out that is affecting team climate"],
+[121,"Connection","DL","A team member connects well with everyone on the team except you"],
+[122,"Connection","CE","The team functions well collectively but there is a noticeable absence of genuine interpersonal warmth"],
+[123,"Vision","SA","The organisation's stated purpose no longer resonates with a significant part of your team"],
+[124,"Vision","DL","You are asked to communicate a vision you do not personally believe in"],
+[125,"Vision","CE","The team has a clear picture of what they are building but no shared sense of why it matters"],
+[126,"Vision","SA","A team member asks what will happen to their work after they move on from the team"],
+[127,"Vision","DL","The team's work has shifted so far from the original vision that the goals feel arbitrary"],
+[128,"Vision","SA","The organisation achieves a major milestone but the team feels no real sense of completion"]
+];
+
+const CARDS_3=[
+[129,"Feedback","SA","A peer asks you for honest feedback on their work and you know it will be difficult to hear"],
+[130,"Feedback","DL","You notice a peer consistently making the same mistake but they have not asked for your input"],
+[131,"Feedback","CE","You give a peer direct feedback and they become defensive and distance themselves from you"],
+[132,"Feedback","DL","A peer gives you feedback you disagree with and you are unsure whether to push back"],
+[133,"Feedback","SA","A peer dismisses your feedback by saying you do not fully understand their role"],
+[134,"Feedback","CE","You stay silent when a peer's work is clearly below standard to avoid the awkwardness"],
+[135,"Direction","DL","You and a peer have been given overlapping responsibilities with no clear boundary between you"],
+[136,"Direction","SA","A peer keeps changing the agreed approach to shared work without consulting you"],
+[137,"Direction","CE","You assume a peer understands the shared goal only to find they have been working toward something different"],
+[138,"Direction","DL","You disagree with the direction a peer is taking on a shared deliverable"],
+[139,"Direction","SA","A peer is moving too slowly on work that is blocking your own progress"],
+[140,"Direction","DL","You and a peer interpret a shared brief differently and both believe you are correct"],
+[141,"Development","SA","A peer asks you to help them develop a skill you are also still building"],
+[142,"Development","DL","A peer is growing faster than you and it is affecting how you see your own progress"],
+[143,"Development","CE","You share knowledge freely with a peer and notice they are using it to advance without reciprocating"],
+[144,"Development","SA","A peer asks you to introduce them to a senior stakeholder you have built a relationship with"],
+[145,"Development","DL","A peer is getting development opportunities that you feel you should also have access to"],
+[146,"Development","CE","You hold back your best ideas in peer discussions because you do not trust how they will be used"],
+[147,"Pressure","SA","A peer is struggling under pressure and it is beginning to affect the quality of shared work"],
+[148,"Pressure","DL","A peer asks you to cover for them during a difficult period but it will add significantly to your load"],
+[149,"Pressure","CE","You consistently absorb extra work from a peer without naming it and resentment is building"],
+[150,"Pressure","SA","A peer is visibly overwhelmed and you are unsure whether to flag it or let them manage it"],
+[151,"Pressure","DL","A deadline is at risk and you need a peer to reprioritise but they report to a different manager"],
+[152,"Pressure","CE","A peer's panic under pressure is beginning to affect your own ability to stay focused"],
+[153,"Recognition","SA","A peer takes credit for work you contributed to significantly without acknowledging your role"],
+[154,"Recognition","DL","You and a peer jointly delivered something and leadership attributes the success to them alone"],
+[155,"Recognition","CE","You consistently let a peer present shared work and you have become invisible in the process"],
+[156,"Recognition","SA","A peer is publicly praised for an idea that originated in a conversation you had together"],
+[157,"Recognition","DL","You want to raise your visibility on shared work without appearing to undermine a peer"],
+[158,"Recognition","CE","You feel resentment toward a peer who receives more recognition despite similar contributions"],
+[159,"Ownership","SA","A peer agrees to own a task in a shared project and then quietly stops delivering on it"],
+[160,"Ownership","DL","It is unclear whether you or a peer owns a decision that needs to be made urgently"],
+[161,"Ownership","CE","You step in to fix a peer's missed commitment and it becomes expected of you"],
+[162,"Ownership","SA","A peer is blaming external factors for their part of a shared failure"],
+[163,"Ownership","DL","You disagree with how a peer is handling their part of shared work but have no authority over them"],
+[164,"Ownership","CE","You take on accountability for shared outcomes even when a peer has not held up their end"],
+[165,"Conflict","SA","A peer undermines your ideas in group settings while appearing supportive in private"],
+[166,"Conflict","DL","You have a recurring conflict with a peer that neither of you has named directly"],
+[167,"Conflict","SA","A peer goes to your manager with a concern about you without raising it with you first"],
+[168,"Conflict","DL","You and a peer have fundamentally different working styles that are creating friction on shared work"],
+[169,"Conflict","CE","A conflict with a peer is beginning to affect how others on the team relate to both of you"],
+[170,"Conflict","SA","A peer is competing with you in a way that feels less like healthy ambition and more like undermining"],
+[171,"Change","SA","A peer resists a new way of working that you have both been asked to adopt"],
+[172,"Change","DL","You adapt quickly to a change that a peer is struggling with and the gap is creating friction"],
+[173,"Change","CE","A peer copes with uncertainty by seeking constant reassurance from you which is draining your capacity"],
+[174,"Change","SA","A peer's role changes significantly and the dynamic between you shifts in ways neither of you has addressed"],
+[175,"Change","DL","You are asked to take on a peer's responsibilities temporarily and the boundary is unclear"],
+[176,"Change","CE","A change that benefits you negatively affects a peer and it is creating tension in your relationship"],
+[177,"Connection","SA","A peer you were previously close to has become distant and you are unsure why"],
+[178,"Connection","CE","You invest significantly in a peer relationship and it becomes one-sided over time"],
+[179,"Connection","SA","A new peer joins and immediately builds stronger relationships with others than you expected"],
+[180,"Connection","DL","A peer shares something personal with you that you are unsure how to hold in a professional context"],
+[181,"Connection","CE","You and a peer have never invested in your working relationship and it is limiting what you can achieve together"],
+[182,"Connection","SA","A peer seems to be forming an alliance with others that is leaving you on the outside"],
+[183,"Vision","SA","A peer seems to have lost motivation for shared work and it is affecting what you can accomplish together"],
+[184,"Vision","DL","You and a peer have different ideas about what success on a shared project looks like"],
+[185,"Vision","CE","You invest in work that a peer treats as low priority and the mismatch is creating quiet conflict"],
+[186,"Vision","SA","A peer asks why you care so much about a piece of work they see as unimportant"],
+[187,"Vision","DL","The work you share with a peer has drifted so far from its original purpose that you are both unsure what you are doing"],
+[188,"Vision","CE","A peer's cynicism about the organisation is beginning to affect your own engagement"],
+[189,"Vision","SA","You and a peer disagree about whether to raise a concern to leadership or handle it between yourselves"],
+[190,"Vision","DL","A peer wants to escalate a shared problem to management and you believe it can be resolved between you"],
+[191,"Vision","CE","You and a peer have been operating on different assumptions about a shared goal for long enough that the gap is now significant"],
+[192,"Vision","SA","A peer's standards for what counts as good enough are consistently lower than yours and it is affecting shared output"]
+];
+
+const CARDS_4=[
+[193,"Feedback","SA","Your manager gives you feedback you believe is based on incomplete or incorrect information"],
+[194,"Feedback","DL","Your manager has not given you meaningful feedback in months and you need to know where you stand"],
+[195,"Feedback","CE","You consistently receive praise from your manager but no specific input that helps you grow"],
+[196,"Feedback","SA","Your manager gives you critical feedback in front of others in a way that feels disproportionate"],
+[197,"Feedback","DL","You want to give your manager feedback about how they are managing you but are unsure how to frame it"],
+[198,"Feedback","CE","You act on feedback from your manager only to receive contradictory feedback shortly after"],
+[199,"Direction","SA","Your manager keeps changing priorities and you are unable to make meaningful progress on anything"],
+[200,"Direction","DL","Your manager gives you a goal you believe is unachievable in the time and with the resources available"],
+[201,"Direction","CE","You wait for your manager to give you direction before acting and it is limiting your impact and visibility"],
+[202,"Direction","SA","Your manager sets a direction for your work that you believe is strategically wrong"],
+[203,"Direction","DL","You receive conflicting direction from your manager and a senior leader they report to"],
+[204,"Direction","CE","Your manager's unclear expectations mean you consistently deliver work that misses what they actually wanted"],
+[205,"Development","SA","You want to discuss your career development with your manager but they always redirect to immediate work"],
+[206,"Development","DL","Your manager is developing a peer ahead of you and you are unsure whether to raise it"],
+[207,"Development","CE","Your manager keeps you in your comfort zone and as a result you are not growing"],
+[208,"Development","SA","You want to take on stretch work that your manager has not offered and you need to ask for it"],
+[209,"Development","DL","Your manager does not support a development path you want to pursue saying the organisation does not need it"],
+[210,"Development","CE","You realise your manager does not have the skills to develop you further in your area of expertise"],
+[211,"Pressure","SA","Your manager adds pressure to work that is already at capacity without removing anything from your plate"],
+[212,"Pressure","DL","Your manager asks you to commit to a deadline you know is not realistic without understanding your workload"],
+[213,"Pressure","CE","You absorb pressure from your manager without pushing back and your sustainability is declining"],
+[214,"Pressure","SA","Your manager is under significant pressure and it is affecting how they treat you"],
+[215,"Pressure","DL","You need to tell your manager you cannot take on more work but are afraid of how it will land"],
+[216,"Pressure","CE","You consistently say yes to your manager to manage the relationship and it is costing you your capacity"],
+[217,"Recognition","SA","Your manager regularly presents your work to senior leadership without acknowledging your contribution"],
+[218,"Recognition","DL","You want to increase your visibility with senior leaders without going around your manager"],
+[219,"Recognition","CE","You do not advocate for your own contributions and as a result your manager underestimates your impact"],
+[220,"Recognition","SA","A peer is more visible to your manager than you despite comparable contributions"],
+[221,"Recognition","DL","You have been passed over for an opportunity and want to understand why without damaging the relationship"],
+[222,"Recognition","CE","Your manager recognises effort but not outcomes and it is causing you to optimise for the wrong things"],
+[223,"Ownership","SA","Your manager takes credit for your work in senior meetings without attributing it to you"],
+[224,"Ownership","DL","Your manager delegates accountability to you without the authority you need to actually deliver"],
+[225,"Ownership","CE","You wait for your manager to make decisions that are within your remit and it is slowing everything down"],
+[226,"Ownership","SA","Your manager keeps reversing decisions you have already communicated to stakeholders"],
+[227,"Ownership","DL","You are held accountable for an outcome that depended on resources your manager promised but did not deliver"],
+[228,"Ownership","CE","You take ownership of problems your manager should own and it is becoming your default pattern"],
+[229,"Conflict","SA","You disagree with your manager on something important and they are not open to your perspective"],
+[230,"Conflict","DL","Your manager plays favourites in a way that affects how work is distributed and recognised"],
+[231,"Conflict","CE","You avoid raising concerns with your manager because previous attempts were not received well"],
+[232,"Conflict","SA","Your manager makes a commitment on your behalf to a stakeholder without consulting you"],
+[233,"Conflict","DL","You have lost trust in your manager and are unsure whether to raise it or manage around it"],
+[234,"Conflict","CE","A pattern of small grievances with your manager has built into something affecting your relationship and performance"],
+[235,"Change","SA","Your manager communicates a significant change to you at the last minute leaving you to manage the impact"],
+[236,"Change","DL","You are asked to implement a change you believe will fail and your manager is not open to challenge"],
+[237,"Change","CE","Your manager changes approach frequently without acknowledging the cost to you and your work"],
+[238,"Change","SA","A new manager takes over and their style is significantly different from what you have been used to"],
+[239,"Change","DL","Your previous manager made commitments about your role that your new manager does not feel bound by"],
+[240,"Change","CE","You adapt to every change your manager introduces without naming the cumulative cost and it is adding up"],
+[241,"Connection","SA","Your manager is consistently unavailable and you are making important decisions without sufficient guidance"],
+[242,"Connection","CE","Your relationship with your manager has become purely transactional and it is affecting your engagement"],
+[243,"Connection","SA","Your manager shows a clear preference for visible in-person work and your style is different"],
+[244,"Connection","DL","You want to build a stronger relationship with your manager but are unsure whether they are open to it"],
+[245,"Connection","CE","You have never invested in understanding what matters most to your manager and it is limiting your effectiveness"],
+[246,"Connection","SA","Your manager seems to have formed a closer relationship with a peer and you feel the difference in how you are treated"],
+[247,"Vision","SA","Your manager cannot articulate how your work connects to the wider organisational strategy"],
+[248,"Vision","DL","You want to pursue a direction for your work that your manager does not currently see value in"],
+[249,"Vision","CE","Your manager focuses entirely on delivery and never discusses where the work is going and why it matters"],
+[250,"Vision","SA","You have a fundamentally different view of what success in your role looks like than your manager does"],
+[251,"Vision","DL","Your manager wants you to focus on short-term delivery while you believe the long-term investment is more important"],
+[252,"Vision","CE","You have been executing against a goal your manager set without understanding why it matters and your motivation is declining"],
+[253,"Vision","SA","Your manager asks you to communicate a vision to your peers that you do not personally believe in"],
+[254,"Vision","DL","You realise your manager does not have enough context about your work to evaluate it fairly"],
+[255,"Vision","CE","The gap between what your manager values and what you believe creates real value has grown wide enough to affect your commitment"],
+[256,"Vision","SA","Your manager consistently reframes your achievements in terms of team output and you are losing your sense of individual contribution"]
+];
+
+const CATS=["All","Feedback","Direction","Development","Pressure","Recognition","Ownership","Conflict","Change","Connection","Vision"];
+const TYPE_KEYS=["All","SA","DL","CE"];
+
+/* ---------- API ---------- */
+function errMsg(e){
+  var m=e&&e.message?e.message:"";
+  if(m==="NO_KEY")return "Add your API key above.";
+  return m?("Error: "+m):"Something went wrong. Try again.";
+}
+
+async function callAPI(prompt,maxTok){
+  var key=getKey();
+  if(!key)throw new Error("NO_KEY");
+  var res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "x-api-key":key,
+      "anthropic-version":"2023-06-01",
+      "anthropic-dangerous-direct-browser-access":"true"
+    },
+    body:JSON.stringify({model:MODEL,max_tokens:maxTok,messages:[{role:"user",content:prompt}]})
+  });
+  var d=await res.json();
+  if(!res.ok)throw new Error((d&&d.error&&d.error.message)?d.error.message:("HTTP "+res.status));
+  var txt=(d.content||[]).map(function(b){return b.text||"";}).join("");
+  return JSON.parse(txt.replace(/```json|```/g,"").trim());
+}
+
+function genCtx(cat,type,if_){
+  var t=TM[type]||TM.SA;
+  return callAPI("Leadership card. Cat:"+cat+" Type:"+t.label+"\nIF:\""+if_+"\"\nReturn ONLY valid JSON, no markdown:\n{\"mis\":\"How leaders misread this. 1 sentence.\",\"sig\":[\"signal 1\",\"signal 2\",\"signal 3\"],\"ris\":\"Risk if ignored. 1 sentence.\",\"det\":\"Self-check question?\",\"then_\":\"Leader response. 2 sentences.\",\"p\":\"Core principle. 1 sentence.\",\"wif\":\"Observable sign it worked. 1 sentence.\",\"cem\":\"Common execution mistake. 1 sentence.\",\"tone\":\"How to be when delivering this. 1 short sentence.\",\"resist\":\"What to do if the response does not land. 1-2 sentences.\"}",700);
+}
+
+/* ---------- shared styles ---------- */
+var s_lbl=function(c){return{fontSize:8,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",color:c||"#606060",marginBottom:7};};
+var s_body={fontSize:12,lineHeight:1.55,margin:0};
+var s_box={background:"#1A1A1A",border:"1px solid #252525",borderRadius:10,padding:"11px 13px",marginTop:13};
+var s_small={background:"transparent",border:"1px solid #2A2A2A",borderRadius:6,color:"#555",fontSize:9,letterSpacing:2,textTransform:"uppercase",fontFamily:"sans-serif",cursor:"pointer",padding:"2px 7px"};
+
+function Badge(props){
+  var t=TM[props.type]||TM.SA;
+  return React.createElement("span",{style:{fontSize:8,letterSpacing:1.5,textTransform:"uppercase",fontFamily:"sans-serif",color:t.c,background:t.bg,border:"1px solid "+t.bd,borderRadius:20,padding:"3px 9px",whiteSpace:"nowrap"}},t.disp+" \xb7 "+t.label);
+}
+
+/* ---------- Card ---------- */
+function Card(props){
+  var card=props.card,flipped=props.flipped,onFlip=props.onFlip;
+  var id=card[0],cat=card[1],type=card[2],if_=card[3];
+  var _s=useState(null);var ctx=_s[0];var setCtx=_s[1];
+  var _l=useState(false);var loading=_l[0];var setLoading=_l[1];
+  var _e=useState("");var cerr=_e[0];var setCerr=_e[1];
+  var tm=TM[type]||TM.SA;
+
+  useEffect(function(){
+    var live=true;
+    (async function(){
+      var cached=null;
+      try{var r=await window.storage.get("ctx_"+id);if(r)cached=JSON.parse(r.value);}catch(e){}
+      if(cached&&cached.then_){if(live)setCtx(cached);return;}
+      if(!getKey()){if(live)setCerr("NO_KEY");return;}
+      if(live){setLoading(true);setCerr("");}
+      try{
+        var c=await genCtx(cat,type,if_);
+        if(live){
+          setCtx(c);
+          try{await window.storage.set("ctx_"+id,JSON.stringify(c));}catch(e2){}
+        }
+      }catch(e){
+        if(live)setCerr(e&&e.message?e.message:"Error");
+      }
+      if(live)setLoading(false);
+    })();
+    return function(){live=false;};
+  },[id]);
+
+  var spin=React.createElement("p",{style:{color:"#404040",fontSize:11,fontFamily:"sans-serif",textAlign:"center",padding:"18px 0"}},"Generating\u2026");
+  var note=null;
+  if(cerr==="NO_KEY"){
+    note=React.createElement("p",{style:{color:"#808080",fontSize:12,fontFamily:"sans-serif",textAlign:"center",padding:"14px 6px",lineHeight:1.5}},"Add your API key in AI Coach to load this card\u2019s content.");
+  }else if(cerr){
+    note=React.createElement("p",{style:{color:"#C06060",fontSize:11,fontFamily:"sans-serif",textAlign:"center",padding:"14px 6px",wordBreak:"break-word"}},"Error: "+cerr);
+  }
+
+  var ifSide=React.createElement(React.Fragment,null,
+    React.createElement("p",{style:s_lbl("#505050")},"IF"),
+    React.createElement("p",{style:{color:"#C8C0B0",fontSize:15,lineHeight:1.7,fontStyle:"italic",marginBottom:14}},if_),
+    loading?spin:null,
+    note,
+    ctx?React.createElement(React.Fragment,null,
+      React.createElement("div",{style:s_box},React.createElement("p",{style:s_lbl()},"Misread as"),React.createElement("p",{style:Object.assign({},s_body,{color:"#999",fontStyle:"italic"})},ctx.mis)),
+      React.createElement("div",{style:s_box},React.createElement("p",{style:s_lbl()},"Signals"),(ctx.sig||[]).map(function(s,i){return React.createElement("div",{key:i,style:{display:"flex",gap:8,marginBottom:5}},React.createElement("span",{style:{color:"#666",fontSize:12,flexShrink:0}},"\xb7"),React.createElement("p",{style:Object.assign({},s_body,{color:"#999"})},s));})),
+      React.createElement("div",{style:s_box},React.createElement("p",{style:s_lbl()},"Risk if ignored"),React.createElement("p",{style:Object.assign({},s_body,{color:"#999"})},ctx.ris)),
+      React.createElement("div",{style:Object.assign({},s_box,{borderColor:"#2A2A2A"})},React.createElement("p",{style:Object.assign({},s_lbl(),{marginBottom:6})},"Ask yourself"),React.createElement("p",{style:Object.assign({},s_body,{color:"#B8B8B8",fontStyle:"italic",fontSize:13})},ctx.det))
+    ):null,
+    React.createElement("p",{style:{fontSize:9,letterSpacing:2,textTransform:"uppercase",fontFamily:"sans-serif",color:"#252525",textAlign:"center",marginTop:16}},"tap to reveal Then \u2192")
+  );
+
+  var thenSide=React.createElement(React.Fragment,null,
+    React.createElement("p",{style:s_lbl(tm.c)},"THEN"),
+    loading?spin:null,
+    note,
+    ctx?React.createElement(React.Fragment,null,
+      React.createElement("div",{style:{background:tm.bg,border:"1px solid "+tm.bd,borderRadius:12,padding:"16px 18px",marginBottom:9}},React.createElement("p",{style:{color:"#E8E0D0",fontSize:14,lineHeight:1.75,margin:0}},ctx.then_)),
+      React.createElement("div",{style:{background:"rgba(201,168,76,.07)",border:"1px solid rgba(201,168,76,.22)",borderRadius:10,padding:"11px 13px",marginBottom:9}},React.createElement("p",{style:s_lbl("#C9A84C")},"Tone guide"),React.createElement("p",{style:Object.assign({},s_body,{color:"#C8C0B0"})},ctx.tone||"")),
+      React.createElement("div",{style:Object.assign({},s_box,{marginBottom:9})},React.createElement("p",{style:s_lbl()},"Principle"),React.createElement("p",{style:Object.assign({},s_body,{color:"#999"})},ctx.p)),
+      React.createElement("div",{style:{background:"rgba(80,160,100,.07)",border:"1px solid rgba(80,160,100,.22)",borderRadius:10,padding:"11px 13px",marginBottom:9}},React.createElement("p",{style:s_lbl("#6BAF7A")},"It worked if"),React.createElement("p",{style:Object.assign({},s_body,{color:"#C8C0B0"})},ctx.wif)),
+      React.createElement("div",{style:{background:"rgba(180,70,70,.07)",border:"1px solid rgba(180,70,70,.22)",borderRadius:10,padding:"11px 13px",marginBottom:9}},React.createElement("p",{style:s_lbl("#C07070")},"Common execution mistake"),React.createElement("p",{style:Object.assign({},s_body,{color:"#C8C0B0"})},ctx.cem)),
+      React.createElement("div",{style:{background:"rgba(106,143,175,.07)",border:"1px solid rgba(106,143,175,.22)",borderRadius:10,padding:"11px 13px"}},React.createElement("p",{style:s_lbl("#6A8FAF")},"If they resist"),React.createElement("p",{style:Object.assign({},s_body,{color:"#C8C0B0"})},ctx.resist||""))
+    ):null
+  );
+
+  return React.createElement("div",{onClick:onFlip,style:{width:"100%",maxWidth:480,cursor:"pointer",borderRadius:18,padding:"22px 20px",background:"#141414",border:"1px solid "+(flipped?tm.bd:"#272727"),transition:"border-color .3s",boxShadow:"4px 4px 0 #111",marginBottom:8}},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}},
+      React.createElement("span",{style:{fontSize:9,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",color:"#484848"}},cat),
+      React.createElement(Badge,{type:type})
+    ),
+    flipped?thenSide:ifSide
+  );
+}
+
+/* ---------- Decks ---------- */
+function DeckView(props){
+  var cards=props.cards;
+  var _c=useState("All");var cat=_c[0];var setCat=_c[1];
+  var _t=useState("All");var type=_t[0];var setType=_t[1];
+  var _i=useState(0);var idx=_i[0];var setIdx=_i[1];
+  var _f=useState(false);var fl=_f[0];var setFl=_f[1];
+  var list=cards.filter(function(c){return(cat==="All"||c[1]===cat)&&(type==="All"||c[2]===type);});
+  var si=Math.min(idx,list.length-1);var card=list[si]||cards[0];
+  function pick(c,t){if(c!==null)setCat(c);if(t!==null)setType(t);setIdx(0);setFl(false);}
+  function go(d){setIdx(function(i){return(i+d+list.length)%list.length;});setFl(false);}
+  var scr={display:"flex",gap:6,overflowX:"auto",paddingBottom:8,width:"100%",maxWidth:480,scrollbarWidth:"none"};
+  function fb(a,col){return{flexShrink:0,padding:"5px 11px",borderRadius:16,border:a?"1px solid "+(col||"#444"):"1px solid #1E1E1E",background:a?"#1A1A1A":"transparent",color:a?(col||"#C8C0B0"):"#404040",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",whiteSpace:"nowrap"};}
+  var availCats=["All"].concat(CATS.slice(1).filter(function(c){return cards.some(function(x){return x[1]===c;});}));
+  return React.createElement("div",{style:{width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}},
+    React.createElement("div",{style:scr},availCats.map(function(c){var n=c==="All"?cards.length:cards.filter(function(x){return x[1]===c;}).length;return React.createElement("button",{key:c,onClick:function(){pick(c,null);},style:fb(cat===c)},c+" ",React.createElement("span",{style:{opacity:.35}},n));})),
+    React.createElement("div",{style:Object.assign({},scr,{marginBottom:18})},TYPE_KEYS.map(function(t){var n=t==="All"?cards.length:cards.filter(function(x){return x[2]===t;}).length;var col=t==="All"?null:TM[t].c;var lbl=t==="All"?"All":TM[t].disp;return React.createElement("button",{key:t,onClick:function(){pick(null,t);},style:fb(type===t,col)},lbl+" ",React.createElement("span",{style:{opacity:.35}},n));})),
+    list.length===0?React.createElement("p",{style:{color:"#333",fontSize:13,fontFamily:"sans-serif",padding:"40px 0"}},"No cards match."):
+    React.createElement(React.Fragment,null,
+      React.createElement(Card,{card:card,flipped:fl,onFlip:function(){setFl(function(f){return !f;});}}),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12,marginTop:12}},
+        React.createElement("button",{onClick:function(){go(-1);},style:{width:38,height:38,borderRadius:"50%",background:"transparent",border:"1px solid #232323",color:"#484848",fontSize:15,cursor:"pointer"}},"\u2190"),
+        React.createElement("div",{style:{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"center",maxWidth:200}},list.map(function(c,i){return React.createElement("div",{key:i,onClick:function(){setIdx(i);setFl(false);},style:{height:5,borderRadius:3,cursor:"pointer",transition:"all .25s",width:i===si?16:5,background:i===si?TM[c[2]].c:"#252525"}});})),
+        React.createElement("button",{onClick:function(){go(1);},style:{width:38,height:38,borderRadius:"50%",background:"transparent",border:"1px solid #232323",color:"#484848",fontSize:15,cursor:"pointer"}},"\u2192")
+      ),
+      React.createElement("p",{style:{fontSize:9,letterSpacing:2,color:"#2A2A2A",fontFamily:"sans-serif",textTransform:"uppercase",marginTop:10}},(si+1)+" of "+list.length)
+    )
+  );
+}
+
+var DECK_META=[
+  {key:"d1",name:"Leading People",sub:"Core leader-to-team situations"},
+  {key:"d2",name:"Leading Deeper",sub:"More nuanced, advanced leader-to-team"},
+  {key:"d3",name:"Peer Dynamics",sub:"Team member to team member"},
+  {key:"d4",name:"Managing Up",sub:"Navigating your relationship with superiors"}
+];
+
+function DeckSelector(props){
+  return React.createElement("div",{style:{width:"100%",maxWidth:480}},
+    DECK_META.map(function(d){
+      return React.createElement("div",{key:d.key,onClick:function(){props.onSelect(d.key);},style:{background:"#141414",border:"1px solid #272727",borderRadius:14,padding:"18px 20px",marginBottom:12,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+        React.createElement("div",null,
+          React.createElement("p",{style:{color:"#E8E0D0",fontSize:17,fontFamily:"Georgia,serif",fontWeight:"normal",margin:"0 0 5px"}},d.name),
+          React.createElement("p",{style:{color:"#606060",fontSize:11,fontFamily:"sans-serif",margin:0}},d.sub)
+        ),
+        React.createElement("span",{style:{fontSize:11,color:"#555",fontFamily:"sans-serif"}},"64 cards \u2192")
+      );
+    })
+  );
+}
+
+function Decks(){
+  var _sel=useState(null);var sel=_sel[0];var setSel=_sel[1];
+  var allCards={d1:CARDS_1,d2:CARDS_2,d3:CARDS_3,d4:CARDS_4};
+  var meta=null;
+  DECK_META.forEach(function(d){if(d.key===sel)meta=d;});
+  if(sel&&meta)return React.createElement("div",{style:{width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}},
+    React.createElement("div",{style:{width:"100%",maxWidth:480,marginBottom:14}},
+      React.createElement("button",{onClick:function(){setSel(null);},style:{background:"transparent",border:"none",color:"#555",fontSize:9,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",cursor:"pointer",textAlign:"left",marginBottom:10,padding:0}},"\u2190 Decks"),
+      React.createElement("h2",{style:{color:"#E8E0D0",fontSize:20,fontWeight:"normal",fontFamily:"Georgia,serif",margin:"0 0 3px"}},meta.name),
+      React.createElement("p",{style:{color:"#606060",fontSize:11,fontFamily:"sans-serif",margin:0}},meta.sub)
+    ),
+    React.createElement(DeckView,{cards:allCards[sel]})
+  );
+  return React.createElement("div",{style:{width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}},
+    React.createElement(DeckSelector,{onSelect:function(k){setSel(k);}})
+  );
+}
+
+/* ---------- list row used by Saved / History / Archive ---------- */
+function Row(props){
+  var h=props.h;var isExp=props.exp;
+  return React.createElement("div",{style:{width:"100%",maxWidth:480,background:"#141414",border:"1px solid "+(isExp?"#272727":"#1E1E1E"),borderRadius:isExp?18:10,marginBottom:10,overflow:"hidden",opacity:props.dim?0.6:1}},
+    React.createElement("div",{onClick:props.onToggle,style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px 8px",cursor:"pointer",gap:12}},
+      React.createElement(Badge,{type:h.type}),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flexShrink:0}},
+        props.actions,
+        React.createElement("span",{style:{color:"#444",fontSize:11}},isExp?"\u25b4":"\u25be")
+      )
+    ),
+    React.createElement("div",{onClick:props.onToggle,style:{padding:"0 16px 12px",cursor:"pointer"}},
+      React.createElement("p",{style:{color:"#C8C0B0",fontSize:13,fontStyle:"italic",margin:0,lineHeight:1.6}},h.if_)
+    ),
+    isExp?React.createElement("div",{style:{padding:"0 8px 8px"}},
+      React.createElement(Card,{card:[h.id,h.cat,h.type,h.if_],flipped:props.flipped,onFlip:props.onFlip})
+    ):null
+  );
+}
+
+function SavedCards(){
+  var _items=useState([]);var items=_items[0];var setItems=_items[1];
+  var _arch=useState([]);var archived=_arch[0];var setArchived=_arch[1];
+  var _l=useState(true);var loading=_l[0];var setLoading=_l[1];
+  var _fl=useState({});var flipped=_fl[0];var setFlipped=_fl[1];
+  var _exp=useState({});var expanded=_exp[0];var setExpanded=_exp[1];
+  var _sa=useState(false);var showArch=_sa[0];var setShowArch=_sa[1];
+  useEffect(function(){
+    (async function(){
+      try{var r=await window.storage.get("ifttt_saved");if(r)setItems(JSON.parse(r.value));}catch(e){}
+      try{var a=await window.storage.get("ifttt_archive");if(a)setArchived(JSON.parse(a.value));}catch(e){}
+      setLoading(false);
+    })();
+  },[]);
+  async function remove(id){
+    var item=items.find(function(x){return x.id===id;});
+    var newItems=items.filter(function(x){return x.id!==id;});
+    setItems(newItems);
+    try{await window.storage.set("ifttt_saved",JSON.stringify(newItems));}catch(e){}
+    if(item){
+      var newArch=archived.concat([Object.assign({},item,{archivedAt:Date.now()})]);
+      setArchived(newArch);
+      try{await window.storage.set("ifttt_archive",JSON.stringify(newArch));}catch(e){}
+    }
+  }
+  function toggleExp(id){setExpanded(function(p){var n=Object.assign({},p);n[id]=!p[id];return n;});}
+  function toggleFlip(id){setFlipped(function(p){var n=Object.assign({},p);n[id]=!p[id];return n;});}
+  if(loading)return React.createElement("p",{style:{color:"#333",fontSize:13,textAlign:"center",padding:"40px 0",fontFamily:"sans-serif"}},"Loading\u2026");
+
+  var savedSection=items.length===0
+    ?React.createElement("p",{style:{color:"#333",fontSize:13,textAlign:"center",padding:"30px 0",fontFamily:"sans-serif"}},"No saved cards yet.")
+    :React.createElement(React.Fragment,null,items.map(function(h){
+        return React.createElement(Row,{key:h.id,h:h,exp:!!expanded[h.id],flipped:!!flipped[h.id],
+          onToggle:function(){toggleExp(h.id);},onFlip:function(){toggleFlip(h.id);},
+          actions:React.createElement("button",{onClick:function(e){e.stopPropagation();remove(h.id);},style:s_small},"Remove")});
+      }));
+
+  var archiveSection=archived.length>0?React.createElement("div",{style:{width:"100%",maxWidth:480,marginTop:4}},
+    React.createElement("button",{onClick:function(){setShowArch(function(v){return !v;});},style:{width:"100%",padding:"9px 14px",background:"transparent",border:"1px solid #1E1E1E",borderRadius:10,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:8}},
+      React.createElement("span",{style:{fontSize:9,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",color:"#444"}},"Removed ("+archived.length+")"),
+      React.createElement("span",{style:{fontSize:10,color:"#444"}},showArch?"\u25b4":"\u25be")
+    ),
+    showArch?React.createElement(React.Fragment,null,archived.map(function(h){
+      var k="a"+h.id;
+      return React.createElement(Row,{key:k,h:h,dim:true,exp:!!expanded[k],flipped:!!flipped[k],
+        onToggle:function(){toggleExp(k);},onFlip:function(){toggleFlip(k);},actions:null});
+    })):null
+  ):null;
+
+  return React.createElement("div",{style:{width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}},savedSection,archiveSection);
+}
+
+function CoachHistory(){
+  var _h=useState([]);var hist=_h[0];var setHist=_h[1];
+  var _sv=useState([]);var savedIds=_sv[0];var setSavedIds=_sv[1];
+  var _l=useState(true);var loading=_l[0];var setLoading=_l[1];
+  var _fl=useState({});var flipped=_fl[0];var setFlipped=_fl[1];
+  var _exp=useState({});var expanded=_exp[0];var setExpanded=_exp[1];
+  var _clr=useState(false);var clr=_clr[0];var setClr=_clr[1];
+  useEffect(function(){
+    (async function(){
+      try{var r=await window.storage.get("ifttt_h");if(r)setHist(JSON.parse(r.value));}catch(e){}
+      try{var s=await window.storage.get("ifttt_saved");if(s)setSavedIds(JSON.parse(s.value).map(function(x){return x.id;}));}catch(e){}
+      setLoading(false);
+    })();
+  },[]);
+  async function saveCard(h){
+    setSavedIds(savedIds.concat([h.id]));
+    try{
+      var sv=[];
+      try{var s=await window.storage.get("ifttt_saved");if(s)sv=JSON.parse(s.value);}catch(e){}
+      if(!sv.find(function(x){return x.id===h.id;})){
+        sv.unshift({id:h.id,cat:h.cat,type:h.type,if_:h.if_,ts:h.ts});
+        await window.storage.set("ifttt_saved",JSON.stringify(sv));
+      }
+    }catch(e){}
+  }
+  async function del(i){var nh=hist.filter(function(_,j){return j!==i;});setHist(nh);try{await window.storage.set("ifttt_h",JSON.stringify(nh));}catch(e){}}
+  async function clearAll(){setHist([]);setClr(false);try{await window.storage.delete("ifttt_h");}catch(e){}}
+  function toggleExp(id){setExpanded(function(p){var n=Object.assign({},p);n[id]=!p[id];return n;});}
+  function toggleFlip(id){setFlipped(function(p){var n=Object.assign({},p);n[id]=!p[id];return n;});}
+
+  if(loading)return React.createElement("p",{style:{color:"#333",fontSize:13,textAlign:"center",padding:"40px 0",fontFamily:"sans-serif"}},"Loading\u2026");
+  if(!hist.length)return React.createElement("p",{style:{color:"#333",fontSize:13,textAlign:"center",padding:"40px 0",fontFamily:"sans-serif"}},"No history yet. Cards you generate without saving appear here.");
+
+  return React.createElement("div",{style:{width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}},
+    hist.map(function(h,i){
+      var isSaved=savedIds.indexOf(h.id)!==-1;
+      var actions=React.createElement(React.Fragment,null,
+        React.createElement("button",{onClick:function(e){e.stopPropagation();if(!isSaved)saveCard(h);},disabled:isSaved,style:Object.assign({},s_small,{background:isSaved?"rgba(80,160,100,.1)":"transparent",border:"1px solid "+(isSaved?"rgba(80,160,100,.35)":"#2A2A2A"),color:isSaved?"#6BAF7A":"#555",cursor:isSaved?"default":"pointer"})},isSaved?"\u2713":"Save"),
+        React.createElement("button",{onClick:function(e){e.stopPropagation();del(i);},style:{background:"transparent",border:"none",color:"#333",fontSize:12,cursor:"pointer",padding:0}},"\u2715")
+      );
+      return React.createElement(Row,{key:h.id||i,h:h,exp:!!expanded[h.id],flipped:!!flipped[h.id],
+        onToggle:function(){toggleExp(h.id);},onFlip:function(){toggleFlip(h.id);},actions:actions});
+    }),
+    !clr
+      ?React.createElement("button",{onClick:function(){setClr(true);},style:{width:"100%",maxWidth:480,marginTop:4,padding:11,background:"transparent",border:"1px solid #1A1A1A",borderRadius:10,color:"#2E2E2E",fontSize:9,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",cursor:"pointer"}},"Clear all history")
+      :React.createElement("div",{style:{display:"flex",gap:8,width:"100%",maxWidth:480,marginTop:4}},
+          React.createElement("button",{onClick:function(){setClr(false);},style:{flex:1,padding:11,background:"transparent",border:"1px solid #1A1A1A",borderRadius:10,color:"#444",fontSize:9,letterSpacing:2,textTransform:"uppercase",fontFamily:"sans-serif",cursor:"pointer"}},"Cancel"),
+          React.createElement("button",{onClick:clearAll,style:{flex:1,padding:11,background:"rgba(180,70,70,.08)",border:"1px solid rgba(180,70,70,.25)",borderRadius:10,color:"#C06060",fontSize:9,letterSpacing:2,textTransform:"uppercase",fontFamily:"sans-serif",cursor:"pointer"}},"Confirm clear")
+        )
+  );
+}
+
+/* ---------- API key bar (AI Coach only) ---------- */
+function KeyBar(props){
+  var _v=useState("");var val=_v[0];var setVal=_v[1];
+  function save(){
+    var k=val.trim();if(!k)return;
+    try{localStorage.setItem(LS+"apikey",k);}catch(e){}
+    setVal("");props.onChange(true);
+  }
+  function clearKey(){
+    try{localStorage.removeItem(LS+"apikey");}catch(e){}
+    props.onChange(false);
+  }
+  if(props.hasKey)return React.createElement("div",{style:{width:"100%",maxWidth:480,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,padding:"0 4px"}},
+    React.createElement("span",{style:{fontSize:9,letterSpacing:2,textTransform:"uppercase",fontFamily:"sans-serif",color:"#444"}},"API key saved on this device"),
+    React.createElement("button",{onClick:clearKey,style:Object.assign({},s_small,{padding:"3px 8px"})},"Remove")
+  );
+  return React.createElement("div",{style:{width:"100%",maxWidth:480,background:"#141414",border:"1px solid #1E1E1E",borderRadius:14,padding:"16px 18px",marginBottom:16}},
+    React.createElement("p",{style:s_lbl("#606060")},"Anthropic API key"),
+    React.createElement("p",{style:{color:"#777",fontSize:12,fontFamily:"sans-serif",lineHeight:1.5,margin:"0 0 12px"}},"Needed for AI Coach and to load card content. It is stored only in this browser and sent only to Anthropic."),
+    React.createElement("input",{type:"password",autoComplete:"off",value:val,onChange:function(e){setVal(e.target.value);},placeholder:"sk-ant-\u2026",style:{width:"100%",background:"#0E0E0E",border:"1px solid #222",borderRadius:10,color:"#C8C0B0",fontSize:13,padding:"10px 12px",outline:"none",marginBottom:10}}),
+    React.createElement("button",{onClick:save,disabled:!val.trim(),style:{width:"100%",padding:11,border:"none",borderRadius:10,fontSize:10,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",fontWeight:700,cursor:val.trim()?"pointer":"not-allowed",background:val.trim()?"#4A9EBF":"#181818",color:val.trim()?"#0E0E0E":"#333"}},"Save key")
+  );
+}
+
+/* ---------- AI Coach ---------- */
+function AICoach(){
+  var _hk=useState(!!getKey());var hasKey=_hk[0];var setHasKey=_hk[1];
+  var _mode=useState("gen");var mode=_mode[0];var setMode=_mode[1];
+  var _sit=useState("");var sit=_sit[0];var setSit=_sit[1];
+  var _orig=useState("");var orig=_orig[0];var setOrig=_orig[1];
+  var _stage=useState("input");var stage=_stage[0];var setStage=_stage[1];
+  var _frames=useState([]);var frames=_frames[0];var setFrames=_frames[1];
+  var _fi=useState(0);var fi=_fi[0];var setFi=_fi[1];
+  var _guide=useState("");var guide=_guide[0];var setGuide=_guide[1];
+  var _showO=useState(false);var showO=_showO[0];var setShowO=_showO[1];
+  var _editing=useState(false);var editing=_editing[0];var setEditing=_editing[1];
+  var _busy=useState(false);var busy=_busy[0];var setBusy=_busy[1];
+  var _result=useState(null);var result=_result[0];var setResult=_result[1];
+  var _fl=useState(false);var fl=_fl[0];var setFl=_fl[1];
+  var _saved=useState(false);var saved=_saved[0];var setSaved=_saved[1];
+  var _err=useState("");var err=_err[0];var setErr=_err[1];
+
+  var ta={width:"100%",background:"#0E0E0E",border:"1px solid #222",borderRadius:10,color:"#C8C0B0",fontSize:13,lineHeight:1.6,padding:"11px 13px",fontFamily:"Georgia,serif",resize:"vertical",outline:"none"};
+
+  async function doSubmit(){
+    if(!sit.trim()||busy)return;
+    setBusy(true);setErr("");
+    if(stage==="input")setOrig(sit.trim());
+    try{
+      var prompt="Reframe this leadership situation as a precise IF clause for a leadership card.\nSituation: \""+sit.trim()+"\"";
+      if(guide.trim())prompt+="\nAdditional guidance: \""+guide.trim()+"\"";
+      prompt+="\nReturn ONLY valid JSON, no markdown:\n{\"if_\":\"Clean IF clause, 1 sentence, no If prefix.\",\"cat\":\"Feedback|Direction|Development|Pressure|Recognition|Ownership|Conflict|Change|Connection|Vision\",\"type\":\"SA|DL|CE\"}";
+      var r=await callAPI(prompt,200);
+      var nf=frames.concat([{if_:r.if_,cat:r.cat||"Feedback",type:r.type||"SA"}]).slice(-5);
+      setFrames(nf);setFi(nf.length-1);setGuide("");setStage("review");
+    }catch(e){setErr(errMsg(e));}
+    finally{setBusy(false);}
+  }
+
+  async function doGenerate(){
+    if(busy||!frames.length)return;
+    var fr=frames[fi];
+    setBusy(true);setErr("");
+    try{
+      var ctx=await genCtx(fr.cat,fr.type||"SA",fr.if_);
+      var id=Date.now();
+      try{await window.storage.set("ctx_"+id,JSON.stringify(ctx));}catch(e2){}
+      setResult([id,fr.cat,fr.type||"SA",fr.if_]);
+      setStage("card");
+    }catch(e){setErr(errMsg(e));}
+    finally{setBusy(false);}
+  }
+
+  async function doSave(){
+    if(!result||saved)return;
+    setSaved(true);
+    var id=result[0];
+    try{
+      var h=[];
+      try{var s=await window.storage.get("ifttt_saved");if(s)h=JSON.parse(s.value);}catch(e){}
+      if(!h.find(function(x){return x.id===id;})){
+        h.unshift({id:id,cat:result[1],type:result[2],if_:result[3],ts:Date.now()});
+        await window.storage.set("ifttt_saved",JSON.stringify(h));
+      }
+    }catch(e){setSaved(false);}
+  }
+
+  function reset(){
+    if(result&&!saved){
+      var id=result[0],cat=result[1],type=result[2],if_=result[3];
+      (async function(){
+        try{
+          var h=[];
+          try{var s=await window.storage.get("ifttt_h");if(s)h=JSON.parse(s.value);}catch(e){}
+          h.unshift({id:id,cat:cat,type:type,if_:if_,ts:Date.now()});
+          await window.storage.set("ifttt_h",JSON.stringify(h.slice(0,30)));
+        }catch(e){}
+      })();
+    }
+    setSit("");setOrig("");setStage("input");setFrames([]);setFi(0);
+    setGuide("");setShowO(false);setEditing(false);setBusy(false);
+    setResult(null);setFl(false);setSaved(false);setErr("");
+  }
+
+  var subNav=React.createElement("div",{style:{display:"inline-flex",background:"#111",border:"1px solid #1A1A1A",borderRadius:8,padding:3,gap:2,marginBottom:20}},
+    ["gen","saved","hist"].map(function(m){
+      var labels={gen:"Generate",saved:"Saved",hist:"History"};
+      var a=mode===m;
+      return React.createElement("button",{key:m,onClick:function(){setMode(m);},style:{padding:"7px 14px",borderRadius:6,border:"none",background:a?"#1A1A1A":"transparent",color:a?"#E8E0D0":"#444",fontSize:9,letterSpacing:2,textTransform:"uppercase",fontFamily:"sans-serif",cursor:"pointer"}},labels[m]);
+    })
+  );
+
+  var body=null;
+  if(mode==="saved"){
+    body=React.createElement(SavedCards,null);
+  }else if(mode==="hist"){
+    body=React.createElement(CoachHistory,null);
+  }else if(!hasKey){
+    body=React.createElement("p",{style:{color:"#444",fontSize:12,fontFamily:"sans-serif",textAlign:"center",padding:"20px 0"}},"Add your API key above to generate cards.");
+  }else if(stage==="input"){
+    body=React.createElement("div",{style:{width:"100%",maxWidth:480}},
+      React.createElement("div",{style:{background:"#141414",border:"1px solid #1E1E1E",borderRadius:18,padding:"24px 20px"}},
+        React.createElement("p",{style:{fontSize:9,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",color:"#606060",marginBottom:8}},"Describe your situation"),
+        React.createElement("textarea",{rows:5,value:sit,onChange:function(e){setSit(e.target.value);},placeholder:"e.g. Two team members decided to work on their own priorities\u2026",style:Object.assign({},ta,{marginBottom:16})}),
+        React.createElement("button",{onClick:doSubmit,disabled:!sit.trim()||busy,style:{width:"100%",padding:13,border:"none",borderRadius:10,fontSize:10,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",fontWeight:700,cursor:sit.trim()&&!busy?"pointer":"not-allowed",background:sit.trim()&&!busy?"#4A9EBF":"#181818",color:sit.trim()&&!busy?"#0E0E0E":"#333"}},busy?"Interpreting\u2026":"Submit \u2192"),
+        err?React.createElement("p",{style:{color:"#C06060",fontSize:12,marginTop:8,textAlign:"center",wordBreak:"break-word"}},err):null
+      )
+    );
+  }else if(stage==="review"){
+    body=React.createElement("div",{style:{width:"100%",maxWidth:480}},
+      frames.length>1?React.createElement("div",{style:{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}},
+        frames.map(function(f,i){var a=i===fi;return React.createElement("button",{key:i,onClick:function(){setFi(i);},style:{padding:"4px 11px",borderRadius:12,border:"1px solid "+(a?"#4A9EBF":"#252525"),background:a?"rgba(74,158,191,.12)":"transparent",color:a?"#4A9EBF":"#555",fontSize:9,letterSpacing:2,textTransform:"uppercase",fontFamily:"sans-serif",cursor:"pointer"}},"v"+(i+1));})
+      ):null,
+      React.createElement("div",{style:{background:"#141414",border:"1px solid #1E1E1E",borderRadius:14,padding:"18px 20px",marginBottom:10}},
+        React.createElement("p",{style:{fontSize:8,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",color:"#606060",marginBottom:10}},"AI interpretation \u2014 approve or refine"),
+        React.createElement("p",{style:s_lbl("#505050")},"IF"),
+        React.createElement("p",{style:{color:"#C8C0B0",fontSize:14,lineHeight:1.7,fontStyle:"italic",margin:0}},frames[fi]?frames[fi].if_:"")
+      ),
+      React.createElement("div",{style:{background:"#111",border:"1px solid #1E1E1E",borderRadius:10,marginBottom:10,overflow:"hidden"}},
+        React.createElement("button",{onClick:function(){setShowO(function(v){return !v;});setEditing(false);},style:{width:"100%",padding:"9px 14px",background:"transparent",border:"none",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}},
+          React.createElement("span",{style:{fontSize:9,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",color:"#555"}},"Your original input"),
+          React.createElement("span",{style:{fontSize:10,color:"#444"}},showO?"\u25b4":"\u25be")
+        ),
+        showO?React.createElement("div",{style:{padding:"0 14px 14px"}},
+          editing
+            ?React.createElement("textarea",{rows:4,value:sit,onChange:function(e){setSit(e.target.value);},style:Object.assign({},ta,{marginBottom:8})})
+            :React.createElement("p",{style:{color:"#686868",fontSize:12,lineHeight:1.55,fontStyle:"italic",marginBottom:8}},orig),
+          React.createElement("button",{onClick:function(){if(!editing)setSit(orig);setEditing(function(v){return !v;});},style:Object.assign({},s_small,{color:"#666",padding:"4px 10px"})},editing?"Cancel":"Edit")
+        ):null
+      ),
+      React.createElement("div",{style:{background:"#111",border:"1px solid #1E1E1E",borderRadius:10,padding:"13px",marginBottom:14}},
+        React.createElement("p",{style:{fontSize:8,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",color:"#555",marginBottom:8}},"Guide the AI \u2014 optional"),
+        React.createElement("textarea",{rows:2,value:guide,onChange:function(e){setGuide(e.target.value);},placeholder:"e.g. You missed that this is a remote team\u2026",style:Object.assign({},ta,{fontSize:12})})
+      ),
+      React.createElement("div",{style:{display:"flex",gap:8}},
+        React.createElement("button",{onClick:function(){if(editing)setOrig(sit);doSubmit();},disabled:busy,style:{flex:1,padding:12,background:"transparent",border:"1px solid #2A2A2A",borderRadius:10,color:busy?"#333":"#686868",fontSize:9,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",cursor:busy?"not-allowed":"pointer"}},busy?"Working\u2026":"Resubmit"),
+        React.createElement("button",{onClick:doGenerate,disabled:busy,style:{flex:2,padding:12,border:"none",borderRadius:10,fontSize:10,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer",background:busy?"#181818":"#6BAF7A",color:busy?"#333":"#0E0E0E"}},"Generate Card \u2192")
+      ),
+      err?React.createElement("p",{style:{color:"#C06060",fontSize:12,marginTop:8,textAlign:"center",wordBreak:"break-word"}},err):null
+    );
+  }else if(stage==="card"&&result){
+    body=React.createElement("div",{style:{width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}},
+      React.createElement(Card,{card:result,flipped:fl,onFlip:function(){setFl(function(f){return !f;});}}),
+      React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8,width:"100%",maxWidth:480,marginTop:4}},
+        React.createElement("button",{onClick:doSave,disabled:saved,style:{width:"100%",padding:13,border:"none",borderRadius:10,fontSize:10,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",fontWeight:700,cursor:saved?"default":"pointer",background:saved?"rgba(80,160,100,.15)":"#6BAF7A",color:saved?"#6BAF7A":"#0E0E0E"}},saved?"\u2713 Card Saved":"Save Card"),
+        React.createElement("button",{onClick:reset,style:{width:"100%",padding:11,background:"transparent",border:"1px solid #1E1E1E",borderRadius:10,color:"#444",fontSize:9,letterSpacing:3,textTransform:"uppercase",fontFamily:"sans-serif",cursor:"pointer"}},"\u2190 New Card")
+      )
+    );
+  }
+
+  return React.createElement("div",{style:{width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}},
+    React.createElement(KeyBar,{hasKey:hasKey,onChange:setHasKey}),
+    subNav,
+    body
+  );
+}
+
+/* ---------- App ---------- */
+function App(){
+  var _t=useState("decks");var tab=_t[0];var setTab=_t[1];
+  function tS(a){return{padding:"9px 13px",borderRadius:7,border:"none",background:a?"#1A1A1A":"transparent",color:a?"#E8E0D0":"#444",fontSize:10,letterSpacing:2,textTransform:"uppercase",fontFamily:"sans-serif",cursor:"pointer",whiteSpace:"nowrap"};}
+  return React.createElement("div",{style:{minHeight:"100vh",background:"#0E0E0E",display:"flex",flexDirection:"column",alignItems:"center",padding:"24px 16px 60px",fontFamily:"Georgia,'Times New Roman',serif"}},
+    React.createElement("p",{style:{fontSize:9,letterSpacing:5,textTransform:"uppercase",fontFamily:"sans-serif",color:"#333",marginBottom:8}},"Leadership Development"),
+    React.createElement("h1",{style:{fontSize:24,fontWeight:"normal",letterSpacing:-.5,marginBottom:8,color:"#E8E0D0"}},"If ",React.createElement("em",{style:{color:"#C9A84C"}},"This"),", Then ",React.createElement("em",{style:{color:"#4A9EBF"}},"That")),
+    React.createElement("div",{style:{display:"flex",gap:14,marginBottom:22,flexWrap:"wrap",justifyContent:"center"}},Object.keys(TM).map(function(k){var v=TM[k];return React.createElement("span",{key:k,style:{fontSize:8,letterSpacing:1.5,fontFamily:"sans-serif",color:v.c}},"\u25cf "+v.disp+" "+v.label);})),
+    React.createElement("div",{style:{display:"inline-flex",background:"#111",border:"1px solid #1A1A1A",borderRadius:10,padding:4,gap:2,marginBottom:26}},
+      React.createElement("button",{style:tS(tab==="decks"),onClick:function(){setTab("decks");}},"\u25a6 Decks"),
+      React.createElement("button",{style:tS(tab==="ai"),onClick:function(){setTab("ai");}},"\u2736 AI Coach")
+    ),
+    tab==="decks"?React.createElement(Decks,null):null,
+    tab==="ai"?React.createElement(AICoach,null):null
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body>
+</html>
